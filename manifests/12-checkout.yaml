@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: ca1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+    spec:
+      containers:
+        - name: checkout
+          image: python:3.11-alpine
+          env:
+            - name: PRICING_URL
+              value: "http://pricing-svc/"
+            - name: INVENTORY_URL
+              value: "http://inventory-svc/"
+            - name: DEP_TIMEOUT
+              value: "1.5"
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              pip install --no-cache-dir requests >/tmp/pip.log 2>&1
+              cat >/tmp/server.py <<'PY'
+              from http.server import BaseHTTPRequestHandler, HTTPServer
+              import json
+              import os
+              import requests
+
+              PRICING_URL = os.getenv("PRICING_URL", "http://pricing-svc/")
+              INVENTORY_URL = os.getenv("INVENTORY_URL", "http://inventory-svc/")
+              DEP_TIMEOUT = float(os.getenv("DEP_TIMEOUT", "1.5"))
+
+              class H(BaseHTTPRequestHandler):
+                  def log_message(self, format, *args):
+                      return
+
+                  def _send(self, obj, code=200):
+                      raw = json.dumps(obj).encode("utf-8")
+                      self.send_response(code)
+                      self.send_header("Content-Type", "application/json")
+                      self.send_header("Content-Length", str(len(raw)))
+                      self.end_headers()
+                      self.wfile.write(raw)
+
+                  def do_GET(self):
+                      if self.path == "/health":
+                          return self._send({"service": "checkout", "status": "ok"})
+                      return self._send({"service": "checkout", "status": "ok"})
+
+                  def do_POST(self):
+                      if self.path != "/api":
+                          return self._send({"error": "not found"}, 404)
+
+                      request_id = self.headers.get("X-Request-Id", "missing")
+                      length = int(self.headers.get("Content-Length", "0"))
+                      body = self.rfile.read(length).decode("utf-8") if length else "{}"
+
+                      try:
+                          data = json.loads(body)
+                      except Exception:
+                          return self._send({
+                              "error": "invalid json",
+                              "request_id": request_id
+                          }, 400)
+
+                      sku = data.get("sku")
+                      subtotal = data.get("subtotal")
+                      quantity = int(data.get("quantity", 1))
+
+                      if sku is None or subtotal is None:
+                          return self._send({
+                              "error": "sku and subtotal are required",
+                              "request_id": request_id
+                          }, 400)
+
+                      headers = {"X-Request-Id": request_id}
+
+                      try:
+                          pricing_resp = requests.get(PRICING_URL, headers=headers, timeout=DEP_TIMEOUT)
+                          pricing_resp.raise_for_status()
+                          pricing = pricing_resp.json()
+                      except requests.exceptions.Timeout:
+                          return self._send({
+                              "error": "pricing timeout",
+                              "request_id": request_id
+                          }, 504)
+                      except Exception as e:
+                          return self._send({
+                              "error": "pricing unavailable",
+                              "detail": str(e),
+                              "request_id": request_id
+                          }, 503)
+
+                      try:
+                          inventory_resp = requests.get(INVENTORY_URL, headers=headers, timeout=DEP_TIMEOUT)
+                          inventory_resp.raise_for_status()
+                          inventory = inventory_resp.json()
+                      except requests.exceptions.Timeout:
+                          return self._send({
+                              "error": "inventory timeout",
+                              "request_id": request_id
+                          }, 504)
+                      except Exception as e:
+                          return self._send({
+                              "error": "inventory unavailable",
+                              "detail": str(e),
+                              "request_id": request_id
+                          }, 503)
+
+                      stock = int(inventory.get("stock", 0))
+                      if stock < quantity:
+                          return self._send({
+                              "error": "out of stock",
+                              "available_stock": stock,
+                              "requested_quantity": quantity,
+                              "request_id": request_id
+                          }, 409)
+
+                      discount_percent = float(pricing.get("discount_percent", 0))
+                      subtotal = float(subtotal)
+                      total = round(subtotal * (1 - discount_percent / 100), 2)
+
+                      print(f"req_id={request_id} method=POST path=/api pricing_ok=true inventory_ok=true total={total}")
+
+                      return self._send({
+                          "service": "checkout",
+                          "request_id": request_id,
+                          "received": data,
+                          "pricing": pricing,
+                          "inventory": inventory,
+                          "total": total
+                      }, 200)
+
+              HTTPServer(("", 8080), H).serve_forever()
+              PY
+              python /tmp/server.py
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout-svc
+  namespace: ca1
+spec:
+  selector:
+    app: checkout
+  ports:
+    - port: 80
+      targetPort: 8080

@@ -65,6 +65,39 @@ This is a complete e-commerce checkout system deployed on Kubernetes, showcasing
 
 ```
 
+## 📐 Sequence Diagram
+
+```
+Client          Traefik        KEDA Interceptor      Checkout        Pricing        Inventory        Postgres
+  |                |                 |                  |               |               |                |
+  | POST /api/checkout               |                  |               |               |                |
+  | X-Request-Id=req-123             |                  |               |               |                |
+  |--------------->|                 |                  |               |               |                |
+  |                | route request   |                  |               |               |                |
+  |                |--------------->|                   |               |               |                |
+  |                |                 | forward request  |               |               |                |
+  |                |                 |----------------->|               |               |                |
+  |                |                 |                  | POST /price   |               |                |
+  |                |                 |                  | X-Request-Id  |               |                |
+  |                |                 |                  |------------->|                |                |
+  |                |                 |                  |               |               |                |
+  |                |                 |                  | GET /stock    |               |                |
+  |                |                 |                  | X-Request-Id  |               |                |
+  |                |                 |                  |------------------------------>|                |
+  |                |                 |                  |               |               |                |
+  |                |                 |                  | <--- pricing response --------|                |
+  |                |                 |                  | <--- inventory response ------|                |
+  |                |                 |                  |                               |                |
+  |                |                 |                  | INSERT audit_log (req-123)    |                |
+  |                |                 |                  |------------------------------>|                |
+  |                |                 |                  |                               |                |
+  |                |                 |                  | response (req-123)            |                |
+  |                |                 |<-----------------|               |               |                |
+  |                |<---------------|                   |               |               |                |
+  |<---------------| response (req-123)                 |               |               |                |
+
+```
+
 ## 📦 Services
 
 ### Gateway (Node.js/Express)

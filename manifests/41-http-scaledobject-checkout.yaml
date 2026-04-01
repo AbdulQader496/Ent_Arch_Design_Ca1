@@ -1,0 +1,23 @@
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: checkout-http
+  namespace: ca1
+spec:
+  hosts:
+    - ca1.local
+  pathPrefixes:
+    - /api/checkout
+  scaleTargetRef:
+    name: checkout
+    kind: Deployment
+    apiVersion: apps/v1
+    service: checkout-svc
+    port: 80
+  replicas:
+    min: 0
+    max: 5
+  scaledownPeriod: 30
+  scalingMetric:
+    concurrency:
+      targetValue: 5

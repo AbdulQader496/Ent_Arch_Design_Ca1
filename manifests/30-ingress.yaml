@@ -9,6 +9,27 @@ spec:
     - host: ca1.local
       http:
         paths:
+          - path: /api/checkout
+            pathType: Prefix
+            backend:
+              service:
+                name: http-interceptor-proxy
+                port:
+                  number: 8080
+          - path: /api/ping
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-svc
+                port:
+                  number: 80
+          - path: /api/arch
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-svc
+                port:
+                  number: 80
           - path: /
             pathType: Prefix
             backend:

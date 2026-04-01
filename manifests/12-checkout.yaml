@@ -122,7 +122,7 @@ spec:
                       return self._send({"service": "checkout", "status": "ok"})
 
                   def do_POST(self):
-                      if self.path != "/api":
+                      if self.path not in ["/api", "/api/checkout"]:
                           return self._send({"error": "not found"}, 404)
 
                       request_id = self.headers.get("X-Request-Id", "missing")

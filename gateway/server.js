@@ -130,25 +130,10 @@ app.get('/api/ping', (_req, res) => {
   });
 });
 
-app.post('/api/checkout', maybeValidateToken, async (req, res) => {
-  try {
-    const backend = await postJsonWithTimeout(
-      CHECKOUT_URL,
-      req.body,
-      BACKEND_TIMEOUT_MS,
-      req.requestId
-    );
-
-    res.status(backend.statusCode);
-    res.set('Content-Type', backend.contentType);
-    res.send(backend.body);
-  } catch (err) {
-    res.status(504).json({
-      error: 'backend request failed',
-      detail: err.message,
-      request_id: req.requestId
-    });
-  }
+app.post('/api/checkout', (_req, res) => {
+  res.status(500).json({
+    error: 'checkout should be routed by ingress to the HTTP interceptor, not handled by gateway'
+  });
 });
 
 app.listen(PORT, () => {

@@ -1,0 +1,9 @@
+{
+  "name": "inventory-service",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

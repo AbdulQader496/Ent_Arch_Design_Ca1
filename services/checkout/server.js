@@ -61,10 +61,13 @@ app.use((req, res, next) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ service: 'checkout', status: 'ok' });
+  res.json({
+    service: 'checkout',
+    status: 'ok'
+  });
 });
 
-app.get('*', (req, res) => {
+app.get('/', (req, res) => {
   res.json({
     service: 'checkout',
     status: 'ok',
@@ -162,6 +165,13 @@ app.post(['/api', '/api/checkout'], async (req, res) => {
     pricing,
     inventory,
     total
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'not found',
+    request_id: req.requestId
   });
 });
 

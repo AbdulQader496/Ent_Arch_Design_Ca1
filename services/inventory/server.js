@@ -30,11 +30,18 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('*', (req, res) => {
+app.get('/', (req, res) => {
   res.status(200).json({
     service: 'inventory',
     stock: 42,
     warehouse: 'ca1-main',
+    request_id: req.requestId
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'not found',
     request_id: req.requestId
   });
 });

@@ -30,20 +30,30 @@ async function maybeValidateToken(req, res, next) {
   if (!REQUIRE_AUTH) return next();
 
   if (!ISSUER || !jwks) {
-    return res.status(500).json({ error: 'gateway auth misconfigured' });
+    return res.status(500).json({
+      error: 'gateway auth misconfigured',
+      request_id: req.requestId
+    });
   }
 
   try {
     const token = extractBearer(req);
     if (!token) {
-      return res.status(401).json({ error: 'missing bearer token' });
+      return res.status(401).json({
+        error: 'missing bearer token',
+        request_id: req.requestId
+      });
     }
 
     const { payload } = await jwtVerify(token, jwks, { issuer: ISSUER });
     req.token = payload;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'invalid token', detail: err.message });
+    return res.status(401).json({
+      error: 'invalid token',
+      detail: err.message,
+      request_id: req.requestId
+    });
   }
 }
 
@@ -63,24 +73,23 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get('/', (_req, res) => {
-  res.type('html').send(`
-    <h1>CA1 Gateway</h1>
-    <p>System entry point is running.</p>
-    <ul>
-      <li><a href="/api/arch">/api/arch</a></li>
-      <li><a href="/api/ping">/api/ping</a></li>
-      <li><a href="/api/checkout">/api/checkout</a> (POST)</li>
-    </ul>
-  `);
-});
-
 app.get('/health', (req, res) => {
   res.json({
     service: 'gateway',
     status: 'ok',
     request_id: req.requestId
   });
+});
+
+app.get('/', (req, res) => {
+  res.type('html').send(`
+    <h1>CA1 Gateway</h1>
+    <p>System entry point is running.</p>
+    <ul>
+      <li><a href="/api/arch">/api/arch</a></li>
+      <li><a href="/api/ping">/api/ping</a></li>
+    </ul>
+  `);
 });
 
 app.get('/api/arch', maybeValidateToken, (req, res) => {
@@ -97,6 +106,13 @@ app.get('/api/ping', (req, res) => {
     status: 'ok',
     time: new Date().toISOString(),
     service: 'gateway',
+    request_id: req.requestId
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'not found',
     request_id: req.requestId
   });
 });

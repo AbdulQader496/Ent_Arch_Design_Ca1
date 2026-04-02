@@ -30,11 +30,18 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('*', (req, res) => {
+app.get('/', (req, res) => {
   res.status(200).json({
     service: 'pricing',
     discount_percent: 10,
     currency: 'EUR',
+    request_id: req.requestId
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'not found',
     request_id: req.requestId
   });
 });

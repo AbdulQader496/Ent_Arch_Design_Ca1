@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: inventory
-          image: aq496/inventory:1.1
+          image: aq496/inventory:v2
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

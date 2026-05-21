@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: checkout
-          image: aq496/checkout:1.1
+          image: aq496/checkout:v2
           imagePullPolicy: Always
           env:
             - name: PRICING_URL

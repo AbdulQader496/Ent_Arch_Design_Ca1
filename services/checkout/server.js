@@ -6,10 +6,11 @@ const crypto = require('crypto');
 const app = express();
 app.use(express.json());
 
-const PORT = 8080;
+const PORT = parseInt(process.env.PORT || '8080', 10);
 const PRICING_URL = process.env.PRICING_URL || 'http://pricing-svc/';
 const INVENTORY_URL = process.env.INVENTORY_URL || 'http://inventory-svc/';
 const DEP_TIMEOUT = parseInt(process.env.DEP_TIMEOUT || '1500', 10);
+const SKIP_DB = (process.env.SKIP_DB || 'false').toLowerCase() === 'true';
 
 const pool = new Pool({
   host: process.env.PGHOST || 'postgres-svc',
@@ -20,6 +21,8 @@ const pool = new Pool({
 });
 
 async function initDb() {
+  if (SKIP_DB) return;
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS audit_log (
       id SERIAL PRIMARY KEY,
@@ -35,6 +38,8 @@ async function initDb() {
 }
 
 async function insertAudit(requestId, sku, quantity, subtotal, total, status) {
+  if (SKIP_DB) return;
+
   await pool.query(
     `
     INSERT INTO audit_log (request_id, sku, quantity, subtotal, total, status)
@@ -183,6 +188,7 @@ async function start() {
       console.log(`PRICING_URL=${PRICING_URL}`);
       console.log(`INVENTORY_URL=${INVENTORY_URL}`);
       console.log(`DEP_TIMEOUT=${DEP_TIMEOUT}`);
+      console.log(`SKIP_DB=${SKIP_DB}`);
     });
   } catch (err) {
     console.error(`startup_error=${err.message}`);

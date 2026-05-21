@@ -6,6 +6,10 @@ metadata:
 spec:
   hosts:
     - ca1.local
+    - 127.0.0.1
+    - 127.0.0.1:5005
+    - localhost
+    - localhost:5005
   pathPrefixes:
     - /api/checkout
   scaleTargetRef:

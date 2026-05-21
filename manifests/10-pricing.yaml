@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: pricing
-          image: aq496/pricing:1.1
+          image: aq496/pricing:v2
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

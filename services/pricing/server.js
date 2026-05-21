@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const app = express();
 app.use(express.json());
 
-const PORT = 8080;
+const PORT = parseInt(process.env.PORT || '8080', 10);
 
 app.use((req, res, next) => {
   const requestId = req.header('x-request-id') || crypto.randomUUID();

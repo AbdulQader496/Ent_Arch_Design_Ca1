@@ -16,6 +16,8 @@ spec:
       containers:
         - name: postgres
           image: postgres:16-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
           env:
             - name: POSTGRES_DB
               valueFrom:

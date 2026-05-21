@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const { Pool } = require('pg');
 const crypto = require('crypto');
+const client = require('prom-client');
 
 const app = express();
 app.use(express.json());
@@ -11,6 +12,13 @@ const PRICING_URL = process.env.PRICING_URL || 'http://pricing-svc/';
 const INVENTORY_URL = process.env.INVENTORY_URL || 'http://inventory-svc/';
 const DEP_TIMEOUT = parseInt(process.env.DEP_TIMEOUT || '1500', 10);
 const SKIP_DB = (process.env.SKIP_DB || 'false').toLowerCase() === 'true';
+client.collectDefaultMetrics();
+
+const httpRequestCounter = new client.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code']
+});
 
 const pool = new Pool({
   host: process.env.PGHOST || 'postgres-svc',
@@ -57,6 +65,12 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
+    const route = Array.isArray(req.route?.path) ? req.route.path.join('|') : req.route?.path || req.path;
+    httpRequestCounter.inc({
+      method: req.method,
+      route,
+      status_code: String(res.statusCode)
+    });
     console.log(
       `req_id=${requestId} method=${req.method} path=${req.originalUrl} status=${res.statusCode} duration_ms=${duration}`
     );
@@ -70,6 +84,11 @@ app.get('/health', (_req, res) => {
     service: 'checkout',
     status: 'ok'
   });
+});
+
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
 });
 
 app.get('/', (req, res) => {

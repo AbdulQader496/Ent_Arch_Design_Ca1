@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { createRemoteJWKSet, jwtVerify } = require('jose');
+const client = require('prom-client');
 
 const app = express();
 app.use(express.json());
@@ -11,6 +12,13 @@ const JWKS_URL = process.env.JWKS_URL || '';
 const REQUIRE_AUTH = (process.env.REQUIRE_AUTH || 'false').toLowerCase() === 'true';
 const CHECKOUT_URL = process.env.CHECKOUT_URL || '';
 const BACKEND_TIMEOUT_MS = parseInt(process.env.BACKEND_TIMEOUT_MS || '5000', 10);
+client.collectDefaultMetrics();
+
+const httpRequestCounter = new client.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code']
+});
 
 let jwks = null;
 if (JWKS_URL) {
@@ -66,6 +74,11 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
+    httpRequestCounter.inc({
+      method: req.method,
+      route: req.route?.path || req.path,
+      status_code: String(res.statusCode)
+    });
     console.log(
       `req_id=${requestId} method=${req.method} path=${req.originalUrl} status=${res.statusCode} duration_ms=${duration}`
     );
@@ -80,6 +93,11 @@ app.get('/health', (req, res) => {
     status: 'ok',
     request_id: req.requestId
   });
+});
+
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.end(await client.register.metrics());
 });
 
 app.get('/api/arch', maybeValidateToken, (req, res) => {

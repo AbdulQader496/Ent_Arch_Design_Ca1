@@ -106,6 +106,8 @@ A successful checkout request follows this path:
 │   ├── 41-http-scaledobject-checkout.yaml
 │   ├── 42-http-interceptor-externalname.yaml
 │   └── checkout-ingress.yaml
+├── monitoring/
+│   └── ca1-servicemonitor.yaml
 └── services/
     ├── checkout/
     │   ├── Dockerfile
@@ -520,6 +522,10 @@ keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local
 
 `checkout-ingress.yaml` contains a commented-out alternative ingress definition for checkout. The active ingress rule currently lives in `30-ingress.yaml`.
 
+### Prometheus ServiceMonitor
+
+`monitoring/ca1-servicemonitor.yaml` creates `ServiceMonitor/ca1-services` in the `monitoring` namespace. It selects the gateway, pricing, inventory, and checkout Kubernetes Services by the `metrics: enabled` label and scrapes their named `http` ports at `/metrics` every 15 seconds.
+
 ## Configuration
 
 ### Gateway Environment Variables
@@ -560,11 +566,39 @@ You need:
 
 The manifests currently reference these images:
 
-- `aq496/gateway:1.3`
-- `aq496/checkout:1.1`
-- `aq496/pricing:1.1`
-- `aq496/inventory:1.1`
+- `aq496/gateway:v6`
+- `aq496/checkout:v3`
+- `aq496/pricing:v3`
+- `aq496/inventory:v3`
 - `postgres:16-alpine`
+
+### Install Prometheus and Grafana
+
+Install kube-prometheus-stack before applying the ServiceMonitor add-on:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install monitoring prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set grafana.grafana.ini.server.root_url=http://127.0.0.2:5005/monitor \
+  --set grafana.grafana.ini.server.serve_from_sub_path=true
+```
+
+Apply the CA1 application manifests, then apply the monitoring add-on:
+
+```bash
+kubectl apply -f manifests/
+kubectl apply -f monitoring/ca1-servicemonitor.yaml
+```
+
+Grafana is routed through the local ingress at `http://127.0.0.2:5005/monitor` when `manifests/99-localhost-new-ui.yaml` is applied. Sign in with username `admin`. Get the generated password with:
+
+```bash
+kubectl get secret -n monitoring monitoring-grafana \
+  -o jsonpath="{.data.admin-password}" | base64 -d
+```
 
 ### Apply Manifests
 
@@ -765,6 +799,17 @@ The request ID is:
 - Included in JSON responses where relevant.
 - Logged by each service.
 - Forwarded by checkout to pricing and inventory.
+
+### Prometheus Metrics
+
+Each Node service exposes `/metrics` in Prometheus text format. The `monitoring/ca1-servicemonitor.yaml` add-on lets Prometheus discover the four Services through the `metrics: enabled` label.
+
+Useful PromQL examples in Grafana:
+
+```promql
+http_requests_total
+rate(http_requests_total[1m])
+```
 
 ### Logs
 

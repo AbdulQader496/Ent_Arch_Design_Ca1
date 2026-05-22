@@ -18,6 +18,13 @@ spec:
       labels:
         app: gateway
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: gateway
           image: aq496/gateway:v6
@@ -66,9 +73,12 @@ kind: Service
 metadata:
   name: gateway-svc
   namespace: ca1
+  labels:
+    metrics: enabled
 spec:
   selector:
     app: gateway
   ports:
-    - port: 80
+    - name: http
+      port: 80
       targetPort: 3000

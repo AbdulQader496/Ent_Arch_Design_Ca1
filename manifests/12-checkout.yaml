@@ -18,6 +18,13 @@ spec:
       labels:
         app: checkout
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: checkout
           image: aq496/checkout:v3
@@ -87,9 +94,12 @@ kind: Service
 metadata:
   name: checkout-svc
   namespace: ca1
+  labels:
+    metrics: enabled
 spec:
   selector:
     app: checkout
   ports:
-    - port: 80
+    - name: http
+      port: 80
       targetPort: 8080

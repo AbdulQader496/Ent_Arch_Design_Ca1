@@ -18,6 +18,13 @@ spec:
       labels:
         app: pricing
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: pricing
           image: aq496/pricing:v3
@@ -61,9 +68,12 @@ kind: Service
 metadata:
   name: pricing-svc
   namespace: ca1
+  labels:
+    metrics: enabled
 spec:
   selector:
     app: pricing
   ports:
-    - port: 80
+    - name: http
+      port: 80
       targetPort: 8080

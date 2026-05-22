@@ -18,6 +18,13 @@ spec:
       labels:
         app: inventory
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: inventory
           image: aq496/inventory:v3
@@ -61,9 +68,12 @@ kind: Service
 metadata:
   name: inventory-svc
   namespace: ca1
+  labels:
+    metrics: enabled
 spec:
   selector:
     app: inventory
   ports:
-    - port: 80
+    - name: http
+      port: 80
       targetPort: 8080
